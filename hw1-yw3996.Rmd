@@ -41,34 +41,69 @@ ctrl1 <- trainControl(method = "repeatedcv",
                       repeats = 5,
                       selectionFunction = "oneSE")
 
-# Lasso 
-set.seed(8106)
-lasso.fit <- train(Sale_Price ~ .,
-                   data = housing_train,
-                   method = "glmnet",
-                   tuneGrid = expand.grid(alpha = 1, 
-                                          lambda = exp(seq(10, 0, length = 200))),
-                   trControl = ctrl1)
-# plot(lasso.fit, xTrans = log)
+ctrl2 <- trainControl(method = "repeatedcv", 
+                      number = 10,
+                      repeats = 5,
+                      selectionFunction = "best")
 ```
-Here's the selected tuning parameter when 1SE rule is applied
+
+Using the minimal MSE rule
 ```{r}
-lasso.fit$bestTune
+set.seed(8106)
+lasso.fit2 <- train(Sale_Price ~ .,
+                    data = housing_train,
+                    method = "glmnet",
+                    tuneGrid = expand.grid(alpha = 1, 
+                                          lambda = exp(seq(10, 0, length = 200))),
+                    trControl = ctrl2)
+# plot(lasso.fit1, xTrans = log)
 ```
-The best tuning parameter is `r round(lasso.fit$bestTune$lambda,3)`
+
+Here's the selected tuning parameter when the minimal MSE rule is applied
+```{r}
+lasso.fit2$bestTune
+```
+
+The best tuning parameter is `r round(lasso.fit2$bestTune$lambda,3)`
 
 And the test error is
 ```{r}
-lasso.pred <- predict(lasso.fit, newdata = housing_test)
+lasso.pred2 <- predict(lasso.fit2, newdata = housing_test)
 # test error
-mean((lasso.pred - housing_test$Sale_Price)^2)
+mean((lasso.pred2 - housing_test$Sale_Price)^2)
 ```
-MSE=`r mean((lasso.pred - housing_test$Sale_Price)^2)`
+MSE=`r mean((lasso.pred2 - housing_test$Sale_Price)^2)`
+
+Using 1SE rule
+```{r}
+set.seed(8106)
+lasso.fit1 <- train(Sale_Price ~ .,
+                    data = housing_train,
+                    method = "glmnet",
+                    tuneGrid = expand.grid(alpha = 1, 
+                                          lambda = exp(seq(10, 0, length = 200))),
+                    trControl = ctrl1)
+# plot(lasso.fit1, xTrans = log)
+```
+
+Here's the selected tuning parameter when 1SE rule is applied
+```{r}
+lasso.fit1$bestTune
+```
+The best tuning parameter is `r round(lasso.fit1$bestTune$lambda,3)`
+
+And the test error is
+```{r}
+lasso.pred1 <- predict(lasso.fit1, newdata = housing_test)
+# test error
+mean((lasso.pred1 - housing_test$Sale_Price)^2)
+```
+MSE=`r mean((lasso.pred1 - housing_test$Sale_Price)^2)`
 
 coefficients in the final model are
 ```{r}
 # coefficients in the final model
-coef(lasso.fit$finalModel, lasso.fit$bestTune$lambda)
+coef(lasso.fit1$finalModel, lasso.fit1$bestTune$lambda)
 ```
 
 Therefore, there are 29 predictors included in the model.
@@ -77,11 +112,6 @@ Therefore, there are 29 predictors included in the model.
 
 Using the minimal MSE rule
 ```{r}
-ctrl2 <- trainControl(method = "repeatedcv", 
-                      number = 10,
-                      repeats = 5,
-                      selectionFunction = "best")
-
 set.seed(8106)
 enet.fit2 <- train(Sale_Price ~ .,
                    data = housing_train,
