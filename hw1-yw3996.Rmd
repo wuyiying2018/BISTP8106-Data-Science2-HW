@@ -36,8 +36,10 @@ housing_test <- na.omit(housing_test)
 ## (a) Fit a lasso model on the training data. Report the selected tuning parameter and the test error. When the 1SE rule is applied, how many predictors are included in the model?
 
 ```{r}
-ctrl1 <- trainControl(method = "cv", number = 10,
-                   selectionFunction = "oneSE")
+ctrl1 <- trainControl(method = "repeatedcv", 
+                      number = 10,
+                      repeats = 5,
+                      selectionFunction = "oneSE")
 
 # Lasso 
 set.seed(8106)
@@ -71,24 +73,39 @@ coef(lasso.fit$finalModel, lasso.fit$bestTune$lambda)
 
 Therefore, there are 29 predictors included in the model.
 
-## (b) Fit an elastic net model on the training data. Report the selected tuning parameters and the test error. Is it possible to apply the 1SE rule to select the tuning parame- ters for elastic net? If the 1SE rule is applicable, implement it to select the tuning parameters. If not, explain why.
+## (b) Fit an elastic net model on the training data. Report the selected tuning parameters and the test error. Is it possible to apply the 1SE rule to select the tuning parameters for elastic net? If the 1SE rule is applicable, implement it to select the tuning parameters. If not, explain why.
+
+Using the minimal MSE rule
+```{r}
+ctrl2 <- trainControl(method = "repeatedcv", 
+                      number = 10,
+                      repeats = 5,
+                      selectionFunction = "best")
+
+set.seed(8106)
+enet.fit2 <- train(Sale_Price ~ .,
+                   data = housing_train,
+                   method = "glmnet",
+                   tuneGrid = expand.grid(alpha = seq(0, 1, length = 21), 
+                                         lambda = exp(seq(10, 0, length = 200))),
+                   trControl = ctrl2)
+
+enet.fit2$bestTune
+
+```
+Using the 1SE rule
 ```{r}
 set.seed(8106)
-enet.fit <- train(Sale_Price ~ .,
-                  data = housing_train,
-                  method = "glmnet",
-                  tuneGrid = expand.grid(alpha = seq(0, 1, length = 21), 
+enet.fit1 <- train(Sale_Price ~ .,
+                   data = housing_train,
+                   method = "glmnet",
+                   tuneGrid = expand.grid(alpha = seq(0, 1, length = 21), 
                                          lambda = exp(seq(10, 0, length = 200))),
-                  trControl = ctrl1)
+                   trControl = ctrl1)
 
-plot(enet.fit, xTrans = log)
-enet.fit$bestTune
-myCol <- rainbow(25)
-myPar <- list(superpose.symbol = list(col = myCol),
-              superpose.line = list(col = myCol))
-plot(enet.fit, par.settings = myPar)
+enet.fit1$bestTune
 ```
-
+Given the substantial difference in lambda values between the minimal MSE and the 1SE rule in the results, it suggests that the simpler model under the 1SE rule is significantly more regularized. Also, the change from alpha = 0.05 to alpha = 0 under the 1SE rule indicates a shift from a slight Lasso preference towards a pure Ridge regression approach. In this way, all predictors are kept in the model, leading to models that may be less sparse but can handle multicollinearity better.
 
 ## (c) Fit a partial least squares model on the training data and report the test error. How many components are included in your model?
 
