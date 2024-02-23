@@ -1,0 +1,72 @@
+---
+title: "Homework 1" 
+author: "Yiying Wu (yw3996)"
+output:
+  pdf_document:
+header-includes:
+- \usepackage{fancyhdr}
+- \usepackage{lipsum}
+- \pagestyle{fancy}
+- \fancyhead[L]{Data Science 2 HW1}
+- \fancyhead[R]{Yiying Wu (yw3996)}
+- \fancypagestyle{plain}{\pagestyle{fancy}}
+--- 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+## R packages
+```{r}
+library(tidyverse)
+library(caret)
+library(tidymodels)
+```
+
+## Input dataset
+```{r}
+housing_train<-read_csv("./data/housing_training.csv")
+housing_train <- na.omit(housing_train)
+housing_test<-read_csv("./data/housing_test.csv")
+housing_test <- na.omit(housing_test)
+```
+
+**Response: Sale price**
+
+## (a) Fit a lasso model on the training data. Report the selected tuning parameter and the test error. When the 1SE rule is applied, how many predictors are included in the model?
+
+```{r}
+ctrl1 <- trainControl(method = "cv", number = 10,
+                   selectionFunction = "oneSE")
+
+# Lasso 
+set.seed(8106)
+lasso.fit <- train(Sale_Price ~ .,
+                   data = housing_train,
+                   method = "glmnet",
+                   tuneGrid = expand.grid(alpha = 1, 
+                                          lambda = exp(seq(10, 0, length = 200))),
+                   trControl = ctrl1)
+# plot(lasso.fit, xTrans = log)
+```
+Here's the selected tuning parameter when 1SE rule is applied
+```{r}
+lasso.fit$bestTune
+```
+And the test error is
+```{r}
+lasso.pred <- predict(lasso.fit, newdata = housing_test)
+# test error
+mean((lasso.pred - housing_test$Sale_Price)^2)
+```
+MSE=`r mean((lasso.pred - housing_test$Sale_Price)^2)`
+
+coefficients in the final model are
+```{r}
+# coefficients in the final model
+coef(lasso.fit$finalModel, lasso.fit$bestTune$lambda)
+```
+
+Therefore, there are 29 predictors included in the model.
+
+## (b) Fit an elastic net model on the training data. Report the selected tuning parameters and the test error. Is it possible to apply the 1SE rule to select the tuning parame- ters for elastic net? If the 1SE rule is applicable, implement it to select the tuning parameters. If not, explain why.
