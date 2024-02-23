@@ -53,6 +53,8 @@ Here's the selected tuning parameter when 1SE rule is applied
 ```{r}
 lasso.fit$bestTune
 ```
+The best tuning parameter is `r round(lasso.fit$bestTune$lambda,3)`
+
 And the test error is
 ```{r}
 lasso.pred <- predict(lasso.fit, newdata = housing_test)
@@ -70,3 +72,26 @@ coef(lasso.fit$finalModel, lasso.fit$bestTune$lambda)
 Therefore, there are 29 predictors included in the model.
 
 ## (b) Fit an elastic net model on the training data. Report the selected tuning parameters and the test error. Is it possible to apply the 1SE rule to select the tuning parame- ters for elastic net? If the 1SE rule is applicable, implement it to select the tuning parameters. If not, explain why.
+```{r}
+set.seed(8106)
+enet.fit <- train(Sale_Price ~ .,
+                  data = housing_train,
+                  method = "glmnet",
+                  tuneGrid = expand.grid(alpha = seq(0, 1, length = 21), 
+                                         lambda = exp(seq(10, 0, length = 200))),
+                  trControl = ctrl1)
+
+plot(enet.fit, xTrans = log)
+enet.fit$bestTune
+myCol <- rainbow(25)
+myPar <- list(superpose.symbol = list(col = myCol),
+              superpose.line = list(col = myCol))
+plot(enet.fit, par.settings = myPar)
+```
+
+
+## (c) Fit a partial least squares model on the training data and report the test error. How many components are included in your model?
+
+## (d) Choose the best model for predicting the response and explain your choice.
+
+## (e) If “caret” was used for the elastic net in (b), retrain this model with “tidymodels”, and vice versa. Compare the selected tuning parameters between the two software approaches. Should there be discrepancies in the chosen parameters, discuss potential reasons for these differences.
