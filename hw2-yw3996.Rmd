@@ -21,20 +21,123 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 library(tidyverse)
 library(caret)
 library(tidymodels)
+library(splines)
 ```
 
-## Input dataset
+## dataset
 ```{r}
 dat<-read_csv("./data/College.csv")
 dat <- na.omit(dat)
-
 ```
 
 Partition the dataset into two parts: training data (80%) and test data (20%).
 ```{r}
+set.seed(1)
+data_split <- initial_split(dat, prop = 0.80)
 
+# Extract the training and test data
+training_data <- training(data_split)
+testing_data <- testing(data_split)
 ```
 
 ## (a)
 Fit smoothing spline models to predict out-of-state tuition (Outstate) using the percentage of alumni who donate (perc.alumni) as the only predictor, across a range of degrees of freedom. Plot the model fits for each degree of freedom. Describe the observed patterns that emerge with varying degrees of freedom. Select an appropriate degree of freedom for the model and plot this optimal fit. Explain the criteria you used to determine the best choice of degree of freedom.
 
+```{r}
+range(dat$perc.alumni)
+perc.alumni.grid <- seq(from = 0, to = 65, by = 1)
+
+# plot the scatter plot for the training data
+p <- ggplot(data = training_data, aes(x = perc.alumni, y = Outstate)) +
+     geom_point(color = rgb(.2, .4, .2, .5))
+```
+
+**For degree of freedom = 3**
+```{r}
+fit.ss3 <- smooth.spline(training_data$perc.alumni, training_data$Outstate,df=3) 
+
+pred.ss3 <- predict(fit.ss3,
+                   x = perc.alumni.grid)
+
+pred.ss.df3 <- data.frame(pred = pred.ss3$y,
+                         perc.alumni = perc.alumni.grid)
+
+```
+
+**For degree of freedom = 5**
+```{r}
+fit.ss5 <- smooth.spline(training_data$perc.alumni, training_data$Outstate,df=5) 
+
+pred.ss5 <- predict(fit.ss5,
+                   x = perc.alumni.grid)
+
+pred.ss.df5 <- data.frame(pred = pred.ss5$y,
+                         perc.alumni = perc.alumni.grid)
+
+```
+
+**For degree of freedom = 8**
+```{r}
+fit.ss8 <- smooth.spline(training_data$perc.alumni, training_data$Outstate,df=8) 
+
+pred.ss8 <- predict(fit.ss8,
+                   x = perc.alumni.grid)
+
+pred.ss.df8 <- data.frame(pred = pred.ss8$y,
+                         perc.alumni = perc.alumni.grid)
+
+```
+
+**Plot the model fits for df=3**
+```{r}
+p +
+geom_line(aes(x = perc.alumni, y = pred), data = pred.ss.df3,
+          color = rgb(.8, .1, .1, 1)) + theme_bw()
+```
+
+**Description** From the plot, there seems to be a positive correlation between the percentage of alumni donors and out-of-state tuition costs.The relationship seems almost linear.
+
+**Plot the model fits for df=5**
+```{r}
+p +
+geom_line(aes(x = perc.alumni, y = pred), data = pred.ss.df5,
+          color = rgb(.8, .1, .1, 1)) + theme_bw()
+```
+**Description** In this plot, the fitted line seems to curve slightly upward from 5 to 30, suggesting a possible non-linear relationship. This might imply that the rate at which out-of-state tuition increases becomes greater at higher percentages of alumni donors within this range. 
+
+**Plot the model fits for df=8**
+```{r}
+p +
+geom_line(aes(x = perc.alumni, y = pred), data = pred.ss.df8,
+          color = rgb(.8, .1, .1, 1)) + theme_bw()
+```
+
+**Description** This plot indicates a nonlinear pattern.
+
+**Select an appropriate degree of freedom for the model**
+```{r}
+# does generalized-cv to determine df automatically
+fit.ss <- smooth.spline(training_data$perc.alumni, training_data$Outstate,df=3) 
+
+pred.ss <- predict(fit.ss,
+                   x = perc.alumni.grid)
+
+pred.ss.df <- data.frame(pred = pred.ss$y,
+                         perc.alumni = perc.alumni.grid)
+
+# print the selected df
+fit.ss$df
+```
+Therefore, the appropriate degree of freedom for the model is `r round(fit.ss$df,4)`
+
+**plot this optimal fit**
+```{r}
+p +
+geom_line(aes(x = perc.alumni, y = pred), data = pred.ss.df,
+          color = rgb(.8, .1, .1, 1)) + theme_bw()
+```
+
+The criteria used to determine the best choice of degree of freedom is **generalized cross validation**.
+
+## (b)
+Train a multivariate adaptive regression spline (MARS) model to predict the response variable. Report the regression function. Present the partial dependence plot of an arbitrary predictor in your model. Report the test error.
