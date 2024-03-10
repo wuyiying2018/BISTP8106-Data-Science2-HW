@@ -37,8 +37,19 @@ data_split <- initial_split(dat, prop = 0.80)
 
 # Extract the training and test data
 training_data <- training(data_split)
+x_train <- training_data %>% select(-College, -Outstate)
+y_train <- training_data$Outstate
+
 testing_data <- testing(data_split)
+x_test <- testing_data %>% select(-College, -Outstate)
+y_test <- testing_data$Outstate
+
+# ctrl
+ctrl <- trainControl(method = "cv", number = 10)
+
 ```
+
+Outcome variable: Outstate
 
 ## (a)
 Fit smoothing spline models to predict out-of-state tuition (Outstate) using the percentage of alumni who donate (perc.alumni) as the only predictor, across a range of degrees of freedom. Plot the model fits for each degree of freedom. Describe the observed patterns that emerge with varying degrees of freedom. Select an appropriate degree of freedom for the model and plot this optimal fit. Explain the criteria you used to determine the best choice of degree of freedom.
@@ -141,3 +152,48 @@ The criteria used to determine the best choice of degree of freedom is **general
 
 ## (b)
 Train a multivariate adaptive regression spline (MARS) model to predict the response variable. Report the regression function. Present the partial dependence plot of an arbitrary predictor in your model. Report the test error.
+
+```{r}
+set.seed(1)
+model.mars <- train(x = x_train,
+                    y = y_train,
+                    method = "earth", # earth is for mars
+                    tuneGrid = expand.grid(degree = 1:4, 
+                                           nprune = 2:20),
+                    trControl = ctrl)
+# degree from 1~4 is sufficient
+# nprune can be larger than the number of predictors, make it as large as possible
+
+plot(model.mars)
+# both number of terms and product degree are upper bounds
+
+# best tune
+model.mars$bestTune
+
+coef(model.mars$finalModel)
+```
+The **regression function** is 
+$$
+\begin{aligned}
+f(x)=&10252.32-0.76 \cdot h(Expend-15494)-29.53 \cdot h(81-Grad.Rate)-1.55\cdot h(4138-Room.Board)\\
+&-0.32 \cdot h(F.Undergrad-1251)-1.53 \cdot h(1251-F.Undergrad)
+-91.88\cdot h(21-perc.alumni)\\
+&+0.38\cdot h(Apps-2694) +5.19\cdot h(942-Enroll)+0.77\cdot h(Expend-6898) -2.09\cdot h(2081-Accept)
+\end{aligned}
+$$
+
+**partial dependence plot of an arbitrary predictor (perc.alumni) in the model.**
+```{r}
+pdp::partial(model.mars, pred.var = c("perc.alumni"), grid.resolution = 200) %>% autoplot()
+```
+
+**test error**
+```{r}
+mars.pred <- predict(model.mars, newdata = x_test)
+test_error_mars <- mean((mars.pred - y_test)^2)
+test_error_mars
+RMSE_mars <- sqrt(test_error_mars)
+RMSE_mars
+```
+
+The RMSE of MARS model is `r round(RMSE_mars,2)`
