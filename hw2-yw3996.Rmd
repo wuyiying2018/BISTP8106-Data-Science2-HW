@@ -196,4 +196,22 @@ RMSE_mars <- sqrt(test_error_mars)
 RMSE_mars
 ```
 
-The RMSE of MARS model is `r round(RMSE_mars,2)`
+The RMSE of MARS model is `r round(RMSE_mars,2)`.
+
+## (c)
+Construct a generalized additive model (GAM) to predict the response variable. Does your GAM model include all the predictors? For the nonlinear terms included in your model, generate plots to visualize these relationships and discuss your observations. Report the test error.
+
+```{r}
+set.seed(1)
+model.gam <- train(x = x_train,
+                   y = y_train,
+                   method = "gam",
+                   trControl = ctrl)
+
+
+model.gam$finalModel
+# degree of freedom=1 means linear
+
+plot(model.gam$finalModel, select = 3)
+```
+
