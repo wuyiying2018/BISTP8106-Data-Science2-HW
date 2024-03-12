@@ -201,17 +201,57 @@ The RMSE of MARS model is `r round(RMSE_mars,2)`.
 ## (c)
 Construct a generalized additive model (GAM) to predict the response variable. Does your GAM model include all the predictors? For the nonlinear terms included in your model, generate plots to visualize these relationships and discuss your observations. Report the test error.
 
-```{r}
+```{r,warning=FALSE}
 set.seed(1)
 model.gam <- train(x = x_train,
                    y = y_train,
                    method = "gam",
                    trControl = ctrl)
 
+model.gam$bestTune
 
 model.gam$finalModel
 # degree of freedom=1 means linear
 
-plot(model.gam$finalModel, select = 3)
+# Plotting
+plot(model.gam$finalModel)
+
 ```
 
+This GAM model includes all the predictors. The nonlinear terms included in the model are perc.alumni, Terminal,Books, PhD, Grad.Rate, Top10perc, S.F.Ratio, Personal, P.Undergrad, S.F.Ratio, Personal, Room.Board, Accept, F.Undergrad, Expend.
+
+**Discussion**
+
+For perc.alumni, Terminal, Books, PhD, Grad.Rate, Top10perc, Top25perc, S.F.Ratio, Personal, P.Undergrad, and Room.Board, the smoother appears relatively flat, suggesting that the relationship between these variables and the response variable is weak. For Accept, Apps, F.Undergrad, Expend, the smoothing spline increases as the number of applications increases, suggesting that the response variable tends to increase as these variables increases. For Enroll, the smoothing spline decreases as the number of applications increases, suggesting that the response variable tends to decrease as these variables increases.
+
+
+```{r}
+# compute and report the test error
+predictions <- predict(model.gam, x_test)
+test_error <- mean((predictions - y_test)^2) # Mean Squared Error (MSE)
+test_error # Reporting the test error
+```
+The **test error** is `r test_error`
+
+## (d)
+In this dataset, would you favor a MARS model over a linear model for predicting out-of- state tuition? If so, why? More broadly, in general applications, do you consider a MARS model to be superior to a linear model? Please share your reasoning.
+
+fit a linear model
+```{r,warning=FALSE}
+model.lm<-train(x_train, y_train,
+                method = "lm",
+                trControl = ctrl)
+
+```
+compare the RMSE
+```{r}
+resamp <- resamples(list(linear_model = model.lm, 
+                        mars=model.mars))
+summary(resamp)
+
+bwplot(resamp, metric = "RMSE")
+```
+
+The MARS model is preferred since it has a lower mean value of RMSE compared to the linear model. 
+
+Whether a MARS model is superior to a linear model depends on the specifics of the data (the underlying true model).
