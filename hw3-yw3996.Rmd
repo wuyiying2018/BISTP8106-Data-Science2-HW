@@ -49,12 +49,7 @@ data_split <- initial_split(dat, prop = 0.7)
 
 # Extract the training and test data
 training_data <- training(data_split)
-x_train <- model.matrix(mpg_cat ~ ., training_data) [ ,-1]
-y_train <- training_data$mpg_cat
-
 testing_data <- testing(data_split)
-x_test <- model.matrix(mpg_cat ~ ., testing_data) [ ,-1]
-y_test <- testing_data$mpg_cat
 
 ctrl <- trainControl(method = "cv", number = 10,
                      summaryFunction = twoClassSummary,
@@ -69,10 +64,10 @@ Use Penalized logistic regression
 
 ```{r}
 glmnGrid <- expand.grid(.alpha = seq(0, 1, length = 21),
-                        .lambda = exp(seq(-8, 2, length = 50)))
+                        .lambda = exp(seq(-8, 1, length = 50)))
 set.seed(1)
-model.glmn <- train(x = x_train,
-                    y = y_train,
+model.glmn <- train(x = training_data[,1:7],
+                    y = training_data$mpg_cat,
                     method = "glmnet",
                     tuneGrid = glmnGrid,
                     metric = "ROC",
@@ -85,14 +80,14 @@ model.glmn$bestTune
 #Coefficients
 coef(model.glmn$finalModel, model.glmn$bestTune$lambda)
 ```
-displacement is the redundant predictor in this model.
+acceleration is the redundant predictor in this model.
 
 ## (b) Based on the model in (a), set a probability threshold to determine the class labels and compute the confusion matrix using the test data. Briefly interpret what the confusion matrix reveals about your model’s performance.
 
 We first consider the simple classifier with a cut-off of 0.5 and evaluate its performance on the test data.
 
 ```{r}
-test.pred.prob <- predict(model.glmn, newdata = x_test, type = "prob")[,2] 
+test.pred.prob <- predict(model.glmn, newdata = testing_data, type = "prob")[,2] 
 test.pred <- rep("high", length(test.pred.prob))
 test.pred[test.pred.prob > 0.5] <- "low"
 
@@ -103,14 +98,14 @@ confusionMatrix(data = as.factor(test.pred),
 
 **Interpretation**
 
-The confusion matrix and accompanying statistics reveal that the model performs well in classifying instances into "high" and "low" categories, with an overall accuracy of 90.68% (CI: 83.93% - 95.25%). The model's performance significantly surpasses the No Information Rate, indicating effective learning beyond mere chance, as evidenced by a p-value of less than 2e-16. The Cohen's Kappa score of 0.8141 further reinforces the model's strong agreement between predictions and actual values, adjusting for chance agreement. Sensitivity and specificity stand at 85.25% and 96.49%, respectively, showcasing the model's ability to accurately identify both "high" and "low" cases. Positive and Negative Predictive Values of 96.30% and 85.94% indicate high probabilities of correct predictions.
+The confusion matrix and accompanying statistics reveal that the model performs well in classifying instances into "high" and "low" categories, with an overall accuracy of 91.53% (CI: 84.97% - 95.86%). The model's performance significantly surpasses the No Information Rate, indicating effective learning beyond mere chance, as evidenced by a p-value of less than 2e-16. The Cohen's Kappa score of 0.8309 further reinforces the model's strong agreement between predictions and actual values, adjusting for chance agreement. Sensitivity and specificity stand at 86.89% and 96.49%, respectively, showcasing the model's ability to accurately identify both "high" and "low" cases. Positive and Negative Predictive Values of 96.36% and 87.30% indicate high probabilities of correct predictions.
 
 ## (c) Train a multivariate adaptive regression spline (MARS) model. Does the MARS model improve the prediction performance compared to logistic regression?
 
 ```{r}
 set.seed(1)
-model.mars <- train(x = x_train,
-                    y = y_train,
+model.mars <- train(x = training_data[,1:7],
+                    y = training_data$mpg_cat,
                     method = "earth", # earth is for mars
                     tuneGrid = expand.grid(degree = 1:4, 
                                            # degree from 1~4 is sufficient
@@ -143,8 +138,8 @@ lda.fit <- lda(mpg_cat~., data = training_data)
 plot(lda.fit) # histogram for z variables: the variable to do classification
 
 set.seed(1)
-model.lda <- train(x = x_train,
-                   y = y_train,
+model.lda <- train(mpg_cat~.,
+                   data = training_data,
                    method = "lda",
                    metric = "ROC",
                    trControl = ctrl)
@@ -163,9 +158,9 @@ MARS model will be used since it has the largest mean ROC value.
 Plot the ROC curve using the test data
 
 ```{r}
-mars.pred <- predict(model.mars, newdata = x_test, type = "prob")[,2]
+mars.pred <- predict(model.mars, newdata = testing_data, type = "prob")[,2]
 
-roc.mars <- roc(y_test, mars.pred)
+roc.mars <- roc(testing_data$mpg_cat, mars.pred)
 auc <- c(roc.mars$auc[1])
 modelNames <- c("mars")
 ggroc(list(roc.mars), legacy.axes = TRUE) +
@@ -178,7 +173,7 @@ The **AUC** is 0.97.
 
 **confusion matrix**
 ```{r}
-test.pred.prob <- predict(model.mars, newdata = x_test, type = "prob")[,2] 
+test.pred.prob <- predict(model.mars, newdata = testing_data, type = "prob")[,2] 
 test.pred <- rep("high", length(test.pred.prob))
 test.pred[test.pred.prob > 0.5] <- "low"
 
