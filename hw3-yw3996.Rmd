@@ -21,11 +21,177 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 library(tidyverse)
 library(caret)
 library(tidymodels)
+library(MASS) # for LDA and QDA
+library(pROC) # ROC curve
 ```
 
 ## Input dataset
 ```{r}
-dat<-read_csv("./data/auto.csv")
+dat<-read_csv("./data/auto.csv")%>%
+  mutate(
+    mpg_cat = as.factor(mpg_cat),
+    origin = as.factor(origin))
+dat <- dat%>%
+  na.omit()
 ```
 
-**Response: mpg cat**
+**Response: mpg_cat**
+```{r}
+contrasts(dat$mpg_cat)
+```
+
+
+Split the dataset into two parts: training data (70%) and test data (30%).
+
+```{r}
+set.seed(1)
+data_split <- initial_split(dat, prop = 0.7)
+
+# Extract the training and test data
+training_data <- training(data_split)
+x_train <- model.matrix(mpg_cat ~ ., training_data) [ ,-1]
+y_train <- training_data$mpg_cat
+
+testing_data <- testing(data_split)
+x_test <- model.matrix(mpg_cat ~ ., testing_data) [ ,-1]
+y_test <- testing_data$mpg_cat
+
+ctrl <- trainControl(method = "cv", number = 10,
+                     summaryFunction = twoClassSummary,
+                     classProbs = TRUE)
+```
+
+
+## (a) Perform a logistic regression analysis using the training data. Are there redundant predictors in your model? If so, identify them. If none is present, please provide an explanation.
+
+
+Use Penalized logistic regression
+
+```{r}
+glmnGrid <- expand.grid(.alpha = seq(0, 1, length = 21),
+                        .lambda = exp(seq(-8, 2, length = 50)))
+set.seed(1)
+model.glmn <- train(x = x_train,
+                    y = y_train,
+                    method = "glmnet",
+                    tuneGrid = glmnGrid,
+                    metric = "ROC",
+                    trControl = ctrl)
+
+model.glmn$bestTune 
+# if the lambda is selected at the boundary, expand the boundary. 
+# If alpha is 0 or 1, it's okay since the range is from [0,1]
+
+#Coefficients
+coef(model.glmn$finalModel, model.glmn$bestTune$lambda)
+```
+displacement is the redundant predictor in this model.
+
+## (b) Based on the model in (a), set a probability threshold to determine the class labels and compute the confusion matrix using the test data. Briefly interpret what the confusion matrix reveals about your model’s performance.
+
+We first consider the simple classifier with a cut-off of 0.5 and evaluate its performance on the test data.
+
+```{r}
+test.pred.prob <- predict(model.glmn, newdata = x_test, type = "prob")[,2] 
+test.pred <- rep("high", length(test.pred.prob))
+test.pred[test.pred.prob > 0.5] <- "low"
+
+confusionMatrix(data = as.factor(test.pred),
+                reference = testing_data$mpg_cat,
+                positive = "low")
+```
+
+**Interpretation**
+
+The confusion matrix and accompanying statistics reveal that the model performs well in classifying instances into "high" and "low" categories, with an overall accuracy of 90.68% (CI: 83.93% - 95.25%). The model's performance significantly surpasses the No Information Rate, indicating effective learning beyond mere chance, as evidenced by a p-value of less than 2e-16. The Cohen's Kappa score of 0.8141 further reinforces the model's strong agreement between predictions and actual values, adjusting for chance agreement. Sensitivity and specificity stand at 85.25% and 96.49%, respectively, showcasing the model's ability to accurately identify both "high" and "low" cases. Positive and Negative Predictive Values of 96.30% and 85.94% indicate high probabilities of correct predictions.
+
+## (c) Train a multivariate adaptive regression spline (MARS) model. Does the MARS model improve the prediction performance compared to logistic regression?
+
+```{r}
+set.seed(1)
+model.mars <- train(x = x_train,
+                    y = y_train,
+                    method = "earth", # earth is for mars
+                    tuneGrid = expand.grid(degree = 1:4, 
+                                           # degree from 1~4 is sufficient
+                                           nprune = 2:30),
+                    #nprune can be larger than the number of predictors, make it as large as possible
+                    metric = "ROC",
+                    trControl = ctrl)
+
+plot(model.mars)
+
+#Coefficients
+coef(model.mars$finalModel)
+```
+
+**ROC comparison**
+```{r}
+res <- resamples(list(GLMNET = model.glmn, MARS = model.mars))
+summary(res)
+```
+
+```{r}
+bwplot(res, metric = "ROC")
+```
+
+MARS shows a slightly better mean ROC value than penalized logistic regression, suggesting it might improve the prediction performance compared to logistic regression. 
+
+## (d) Perform linear discriminant analysis using the training data. Plot the linear discriminant variable(s).
+```{r}
+lda.fit <- lda(mpg_cat~., data = training_data)
+plot(lda.fit) # histogram for z variables: the variable to do classification
+
+set.seed(1)
+model.lda <- train(x = x_train,
+                   y = y_train,
+                   method = "lda",
+                   metric = "ROC",
+                   trControl = ctrl)
+```
+
+## (e) Which model will you use to predict the response variable? Plot its ROC curve using the test data. Report the AUC and the misclassification error rate.
+
+```{r}
+res <- resamples(list(GLMNET = model.glmn, 
+                      MARS = model.mars,
+                      LDA = model.lda))
+summary(res)
+```
+MARS model will be used since it has the largest mean ROC value. 
+
+Plot the ROC curve using the test data
+
+```{r}
+mars.pred <- predict(model.mars, newdata = x_test, type = "prob")[,2]
+
+roc.mars <- roc(y_test, mars.pred)
+auc <- c(roc.mars$auc[1])
+modelNames <- c("mars")
+ggroc(list(roc.mars), legacy.axes = TRUE) +
+  scale_color_discrete(labels = paste0(modelNames, " (", round(auc,3),")"),
+                       name = "Models (AUC)") +
+  geom_abline(intercept = 0, slope = 1, color = "grey")
+```
+
+The **AUC** is 0.97.
+
+**confusion matrix**
+```{r}
+test.pred.prob <- predict(model.mars, newdata = x_test, type = "prob")[,2] 
+test.pred <- rep("high", length(test.pred.prob))
+test.pred[test.pred.prob > 0.5] <- "low"
+
+confusionMatrix(data = as.factor(test.pred),
+                reference = testing_data$mpg_cat,
+                positive = "low")
+```
+
+Accuracy: 0.9237
+
+Misclassification error rate $= 1 - Accuracy
+= 1 - 0.9237
+= 0.0763$
+
+
+The **misclassification error rate** is 7.63%.
