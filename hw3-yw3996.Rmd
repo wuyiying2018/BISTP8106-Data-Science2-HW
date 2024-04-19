@@ -7,7 +7,7 @@ header-includes:
 - \usepackage{fancyhdr}
 - \usepackage{lipsum}
 - \pagestyle{fancy}
-- \fancyhead[L]{Data Science 2 HW1}
+- \fancyhead[L]{Data Science 2 HW3}
 - \fancyhead[R]{Yiying Wu (yw3996)}
 - \fancypagestyle{plain}{\pagestyle{fancy}}
 --- 
