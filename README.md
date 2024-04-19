@@ -10,3 +10,6 @@ smoothing spline model / multivariate adaptive regression spline (MARS) model / 
 
 ## [HW3](./hw3-yw3996.pdf)
 Classification: logistic regression / multivariate adaptive regression spline (MARS) / linear discriminant analysis (LDA)
+
+## [HW4](./hw4-yw3996.pdf)
+Regression & Classification: random forest / gradient-boosted trees model (gbm model)
