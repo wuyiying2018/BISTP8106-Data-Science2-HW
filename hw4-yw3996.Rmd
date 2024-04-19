@@ -113,6 +113,7 @@ rf.predict <- predict(rf.fit, newdata = training_data1)
 rf.RMSE <- RMSE(rf.predict, y_test1)
 rf.RMSE 
 ```
+
 The RMSE for random forest is `r round(rf.RMSE,3)`.
 
 ### (c) Perform boosting on the training data. Report the variable importance and the test error.
@@ -163,6 +164,9 @@ gbm.RMSE
 The RMSE for gbm model is `r round(gbm.RMSE,3)`.
 
 ## 2. auto data
+
+This problem is based on the data “auto.csv” in Homework 3. Split the dataset into two parts: training data (70%) and test data (30%).
+
 ```{r}
 dat2<-read_csv("./data/auto.csv")%>%
   mutate(
@@ -190,3 +194,84 @@ ctrl2 <- trainControl(method = "cv", number = 10,
                      summaryFunction = twoClassSummary,
                      classProbs = TRUE)
 ```
+
+### (a) Build a classification tree using the training data, with mpg cat as the response. Which tree size corresponds to the lowest cross-validation error? Is this the same as the tree size obtained using the 1 SE rule?
+
+```{r}
+set.seed(1)
+rpart.fit2 <- train(mpg_cat ~ . ,
+                   training_data2,
+                   method = "rpart",
+                   tuneGrid = data.frame(cp = exp(seq(-8,-3, len = 100))),
+                   trControl = ctrl2,
+                   metric = "ROC")
+plot(rpart.fit2, xTrans = log)
+
+```
+```{r}
+rpart.fit2$bestTune
+```
+
+```{r}
+rpart.plot(rpart.fit2$finalModel)
+```
+
+The tree size of 7 has the lowest cross validation error. cp=`r round(rpart.fit2$bestTune$cp,5)`
+
+```{r}
+set.seed(1)
+tree1 <- rpart(formula = mpg_cat ~ . ,
+               data = training_data2,
+               control = rpart.control(cp = 0))
+cpTable <- printcp(tree1)
+#rpart.plot(tree1)
+#plotcp(tree1)
+```
+**1SE rule**
+```{r}
+set.seed(1)
+minErr <- which.min(cpTable[, "xerror"])
+oneSE <- cpTable[minErr, "xerror"] + cpTable[minErr, "xstd"]
+minErr1SE <- which(cpTable[, "xerror"] <= oneSE)[1]
+tree2 <- rpart::prune(tree1, cp = cpTable[minErr1SE, "CP"])
+cpTable <- printcp(tree2)
+#plotcp(tree2)
+rpart.plot(tree2)
+```
+
+The tree size obtained using the 1 SE rule is 2. It's different from the tree size corresponds to the lowest cross-validation error.
+
+### (b) Perform boosting on the training data and report the variable importance. Report the test data performance.
+```{r}
+gbmA.grid <- expand.grid(n.trees = c(2000,3000,4000,5000),
+                         interaction.depth = 1:6,
+                         shrinkage = c(0.001,0.002, 0.003),
+                         n.minobsinnode = 1)
+set.seed(1)
+gbmA.fit <- train(mpg_cat ~ . ,
+                  training_data2,
+                  tuneGrid = gbmA.grid,
+                  trControl = ctrl2,
+                  method = "gbm",
+                  distribution = "adaboost",
+                  metric = "ROC",
+                  verbose = FALSE)
+ggplot(gbmA.fit, highlight = TRUE)
+```
+
+**variable importance**
+
+```{r}
+summary(gbmA.fit$finalModel, las = 2, cBars = 19, cex.names = 0.6)
+```
+
+
+```{r}
+gbmA.pred <- predict(gbmA.fit, newdata = testing_data2, 
+                     type ="prob")[,1]
+resamp <- resamples(list(rf = rpart.fit2,
+                         gbmA = gbmA.fit))
+summary(resamp)
+```
+
+The boosting method has a higher average AUC value (0.9765) than random forest method (0.9384). Therefore, boosting method has better test data performance.
