@@ -1,0 +1,192 @@
+---
+title: "Homework 4" 
+author: "Yiying Wu (yw3996)"
+output:
+  pdf_document:
+header-includes:
+- \usepackage{fancyhdr}
+- \usepackage{lipsum}
+- \pagestyle{fancy}
+- \fancyhead[L]{Data Science 2 HW4}
+- \fancyhead[R]{Yiying Wu (yw3996)}
+- \fancypagestyle{plain}{\pagestyle{fancy}}
+--- 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+## R packages
+```{r}
+library(tidyverse)
+library(caret)
+library(tidymodels)
+library(rpart)
+library(rpart.plot)
+library(ranger)
+library(gbm)
+```
+
+## 1. College data
+
+In this exercise, we will build tree-based models using the College data (see “Col- lege.csv” in Homework 2). The response variable is the out-of-state tuition (Outstate). Partition the dataset into two parts: training data (80%) and test data (20%).
+
+```{r}
+dat1<-read_csv("./data/College.csv")
+dat1 <- na.omit(dat1)%>% select(-College)
+```
+
+Partition the dataset into two parts: training data (80%) and test data (20%).
+```{r}
+set.seed(1)
+data_split1 <- initial_split(dat1, prop = 0.80)
+
+# Extract the training and test data
+training_data1 <- training(data_split1)
+x_train1 <- training_data1 %>% select(-Outstate)
+y_train1 <- training_data1$Outstate
+
+testing_data1 <- testing(data_split1)
+x_test1 <- testing_data1 %>% select(-Outstate)
+y_test1 <- testing_data1$Outstate
+
+# ctrl
+ctrl1 <- trainControl(method = "cv", number = 10)
+
+```
+
+**Outcome variable: Outstate**
+
+### (a) Build a regression tree on the training data to predict the response. Create a plot of the tree.
+
+```{r}
+set.seed(1)
+rpart.fit <- train(Outstate ~ . , 
+                   training_data1, 
+                   method = "rpart",
+                   tuneGrid = data.frame(cp = exp(seq(-8,2, length = 100))),
+                   trControl = ctrl1)
+
+
+plot(rpart.fit, xTrans = log)
+
+rpart.plot(rpart.fit$finalModel)
+```
+
+### (b) Perform random forest on the training data. Report the variable importance and the test error.
+
+```{r}
+rf.grid <- expand.grid(mtry = 1:16,
+                       splitrule = "variance",
+                       min.node.size = 1:6)
+set.seed(1)
+rf.fit <- train(Outstate ~ . , 
+                training_data1, 
+                method = "ranger",
+                tuneGrid = rf.grid,
+                trControl = ctrl1)
+ggplot(rf.fit, highlight = TRUE)
+rf.fit$bestTune
+```
+
+**variable importance**
+
+```{r}
+set.seed(1)
+rf.final.per <- ranger(Outstate ~ . , 
+                        training_data1,
+                        mtry = rf.fit$bestTune[[1]], 
+                        splitrule = "variance",
+                        min.node.size = rf.fit$bestTune[[3]],
+                        importance = "permutation",
+                        scale.permutation.importance = TRUE) 
+barplot(sort(ranger::importance(rf.final.per), decreasing = FALSE), 
+        las = 2, horiz = TRUE, cex.names = 0.7,
+        col = colorRampPalette(colors = c("cyan","blue"))(19))
+
+```
+
+**test error**
+
+```{r}
+rf.predict <- predict(rf.fit, newdata = training_data1)
+rf.RMSE <- RMSE(rf.predict, y_test1)
+rf.RMSE 
+```
+The RMSE for random forest is `r round(rf.RMSE,3)`.
+
+### (c) Perform boosting on the training data. Report the variable importance and the test error.
+```{r}
+gbm.grid <- expand.grid(n.trees = c(1000, 2000, 3000, 4000, 5000),
+                        interaction.depth = 1:3,
+                        shrinkage = c(0.001, 0.005),
+                        n.minobsinnode = c(1))
+    
+set.seed(1)
+gbm.fit <- train(Outstate ~ . ,
+                 training_data1,
+                 method = "gbm",
+                 tuneGrid = gbm.grid,
+                 trControl = ctrl1,
+                 verbose = FALSE)
+ggplot(gbm.fit, highlight = TRUE)
+gbm.fit$bestTune
+```
+
+**variable importance**
+
+```{r}
+set.seed(1)
+gbm.final.per <- ranger(Outstate ~ . , 
+                        training_data1,
+                        n.trees = gbm.fit$bestTune[[1]], 
+                        splitrule = "variance",
+                        interaction.depth = gbm.fit$bestTune[[2]],
+                        shrinkage = gbm.fit$bestTune[[3]],
+                        n.minobsinnode = gbm.fit$bestTune[[4]],
+                        importance = "permutation",
+                        scale.permutation.importance = TRUE) 
+barplot(sort(ranger::importance(gbm.final.per), decreasing = FALSE), 
+        las = 2, horiz = TRUE, cex.names = 0.7,
+        col = colorRampPalette(colors = c("cyan","blue"))(19))
+
+```
+
+**test error**
+
+```{r}
+gbm.predict <- predict(gbm.fit, newdata = testing_data1)
+gbm.RMSE <- RMSE(gbm.predict, y_test1)
+gbm.RMSE 
+```
+
+The RMSE for gbm model is `r round(gbm.RMSE,3)`.
+
+## 2. auto data
+```{r}
+dat2<-read_csv("./data/auto.csv")%>%
+  mutate(
+    mpg_cat = as.factor(mpg_cat),
+    origin = as.factor(origin))
+dat2 <- na.omit(dat2)
+```
+**Outcome variable: mpg_cat**
+```{r}
+contrasts(dat2$mpg_cat)
+```
+
+
+Split the dataset into two parts: training data (70%) and test data (30%).
+
+```{r}
+set.seed(1)
+data_split2 <- initial_split(dat2, prop = 0.7)
+
+# Extract the training and test data
+training_data2 <- training(data_split2)
+testing_data2 <- testing(data_split2)
+
+ctrl2 <- trainControl(method = "cv", number = 10,
+                     summaryFunction = twoClassSummary,
+                     classProbs = TRUE)
+```
