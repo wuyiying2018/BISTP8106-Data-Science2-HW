@@ -108,17 +108,28 @@ radial.tune$best.parameters
 best.radial <- radial.tune$best.model
 summary(best.radial)
 
+# Predict on the training data using the best model
+pred.radial.train <- predict(best.radial, newdata = training_data)
+
+# Calculate the confusion matrix for the training predictions
+conf.matrix.train <- confusionMatrix(data = pred.radial.train, 
+                                     reference = training_data$mpg_cat)
+
+# Extract and print the training error rate
+train.error.rate <- 1 - conf.matrix.train$overall['Accuracy']
+print(train.error.rate)
+
 pred.radial <- predict(best.radial, newdata = testing_data)
 
 confusionMatrix(data = pred.radial, 
                 reference = testing_data$mpg_cat)
 ```
 
-The **training error rate** is 0.0119.
+The **training error rate** is `r round(train.error.rate,4)`.
 
-Test Error Rate $= 1 - Accuracy=1-0.9068=0.0932$
+Test Error Rate $= 1 - Accuracy=1-0.9153=0.0847$
 
-The **test error rate** for the model on the testing data is approximately 0.0932.
+The **test error rate** for the model on the testing data is approximately 0.0847.
 
 ## 2. USArrests data
 
