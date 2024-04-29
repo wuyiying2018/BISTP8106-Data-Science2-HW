@@ -17,3 +17,115 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 ```
 
 ## R packages
+```{r}
+library(tidyverse)
+library(caret)
+library(tidymodels)
+library(ISLR)
+library(e1071)
+```
+
+## 1. auto.csv data
+
+In this problem, we will apply support vector machines to predict whether a given car gets high or low gas mileage based on the dataset “auto.csv” (used in Homework 3; see Homework 3 for more details of the dataset). The response variable is mpg cat. The predictors are cylinders, displacement, horsepower, weight, acceleration, year, and origin. Split the dataset into two parts: training data (70%) and test data (30%).
+
+
+Input dataset
+```{r}
+dat<-read_csv("./data/auto.csv")%>%
+  mutate(
+    mpg_cat = as.factor(mpg_cat),
+    origin = as.factor(origin))
+dat <- dat%>%
+  na.omit()
+```
+
+**Response: mpg_cat**
+```{r}
+contrasts(dat$mpg_cat)
+```
+
+
+Split the dataset into two parts: training data (70%) and test data (30%).
+
+```{r}
+set.seed(1)
+data_split <- initial_split(dat, prop = 0.7)
+
+# Extract the training and test data
+training_data <- training(data_split)
+testing_data <- testing(data_split)
+
+ctrl <- trainControl(method = "cv", number = 10,
+                     summaryFunction = twoClassSummary,
+                     classProbs = TRUE)
+```
+
+
+### (a) Fit a support vector classifier to the training data. What are the training and test error rates?
+```{r}
+set.seed(1)
+linear.tune <- tune.svm(mpg_cat ~ . , 
+                        data = training_data, 
+                        kernel = "linear", 
+                        cost = exp(seq(-5,2, len = 50)),
+                        scale = TRUE)
+plot(linear.tune)
+# summary(linear.tune)
+linear.tune$best.parameters
+
+best.linear <- linear.tune$best.model
+summary(best.linear)
+
+pred.linear <- predict(best.linear, newdata = testing_data)
+
+confusionMatrix(data = pred.linear, 
+                reference = testing_data$mpg_cat)
+
+```
+
+The **training error rate** is 0.0119.
+
+Test Error Rate $= 1 - Accuracy=1-0.9068=0.0932$
+
+The **test error rate** for the model on the testing data is approximately 0.0932.
+
+### (b) Fit a support vector machine with a radial kernel to the training data. What are the training and test error rates?
+```{r}
+set.seed(1)
+radial.tune <- tune.svm(mpg_cat ~ . , 
+                        data = training_data, 
+                        kernel = "radial", 
+                        cost = exp(seq(1, 7, len = 50)),
+                        gamma = exp(seq(-10, -2,len = 20)))
+
+plot(radial.tune, transform.y = log, transform.x = log, 
+     color.palette = terrain.colors)
+# summary(radial.tune)
+
+radial.tune$best.parameters
+
+best.radial <- radial.tune$best.model
+summary(best.radial)
+
+pred.radial <- predict(best.radial, newdata = testing_data)
+
+confusionMatrix(data = pred.radial, 
+                reference = testing_data$mpg_cat)
+```
+
+The **training error rate** is 0.0119.
+
+Test Error Rate $= 1 - Accuracy=1-0.9068=0.0932$
+
+The **test error rate** for the model on the testing data is approximately 0.0932.
+
+## 2. USArrests data
+
+### (a) Using hierarchical clustering with complete linkage and Euclidean distance, cluster the states. Cut the dendrogram at a height that results in three distinct clusters. Which states belong to which clusters?
+
+
+### (b) Hierarchically cluster the states using complete linkage and Euclidean distance, after scaling the variables to have standard deviation one.
+
+
+### (c) Does scaling the variables change the clustering results? Why? In your opinion, should the variables be scaled before the inter-observation dissimilarities are com- puted?
