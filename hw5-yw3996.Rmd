@@ -1,0 +1,19 @@
+---
+title: "Homework 5" 
+author: "Yiying Wu (yw3996)"
+output:
+  pdf_document:
+header-includes:
+- \usepackage{fancyhdr}
+- \usepackage{lipsum}
+- \pagestyle{fancy}
+- \fancyhead[L]{Data Science 2 HW5}
+- \fancyhead[R]{Yiying Wu (yw3996)}
+- \fancypagestyle{plain}{\pagestyle{fancy}}
+--- 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+## R packages
