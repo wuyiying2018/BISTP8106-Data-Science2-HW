@@ -13,3 +13,6 @@ Classification: logistic regression / multivariate adaptive regression spline (M
 
 ## [HW4](./hw4-yw3996.pdf)
 Regression & Classification: random forest / gradient-boosted trees model (gbm model)
+
+## [HW5](./hw5-yw3996.pdf)
+support vector machines: support vector classifier / support vector machine with a radial kernel
