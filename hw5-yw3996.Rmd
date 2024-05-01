@@ -23,6 +23,7 @@ library(caret)
 library(tidymodels)
 library(ISLR)
 library(e1071)
+library(factoextra)
 ```
 
 ## 1. auto.csv data
@@ -133,10 +134,79 @@ The **test error rate** for the model on the testing data is approximately 0.084
 
 ## 2. USArrests data
 
+In this problem, we perform hierarchical clustering on the states using the USArrests data in the ISLR package. For each of the 50 states in the United States, the dataset contains the number of arrests per 100,000 residents for each of three crimes: Assault, Murder, and Rape. The dataset also contains the percent of the population in each state living in urban areas, UrbanPop. The four variables will be used as features for clustering.
+
+```{r}
+data(USArrests)
+dat2 <- na.omit(USArrests)
+set.seed(1)
+```
+
+
 ### (a) Using hierarchical clustering with complete linkage and Euclidean distance, cluster the states. Cut the dendrogram at a height that results in three distinct clusters. Which states belong to which clusters?
 
+Use hierarchical clustering with complete linkage and Euclidean distance, cluster the states
+
+```{r}
+hc.complete <- hclust(dist(dat2), method = "complete")
+```
+
+Visualize the dendrogram and cut the dendrogram at a height that results in three distinct clusters
+
+```{r}
+fviz_dend(hc.complete, k = 3,        
+          cex = 0.3, 
+          palette = "jco", 
+          color_labels_by_k = TRUE,
+          rect = TRUE, rect_fill = TRUE, rect_border = "jco",
+          labels_track_height = 2.5)
+
+ind4.complete <- cutree(hc.complete, 3)
+```
+Which states belong to which clusters
+```{r}
+# States in the first cluster
+dat2[ind4.complete == 1,]
+# States in the second cluster
+dat2[ind4.complete == 2,]
+# States in the third cluster
+dat2[ind4.complete == 3,]
+```
 
 ### (b) Hierarchically cluster the states using complete linkage and Euclidean distance, after scaling the variables to have standard deviation one.
 
+```{r}
+dat2_scale <- scale(dat2)
+hc.complete_scale <- hclust(dist(dat2_scale), method = "complete")
+```
 
-### (c) Does scaling the variables change the clustering results? Why? In your opinion, should the variables be scaled before the inter-observation dissimilarities are com- puted?
+Visualize the dendrogram and cut the dendrogram at a height that results in three distinct clusters
+
+```{r}
+fviz_dend(hc.complete_scale, k = 3,        
+          cex = 0.3, 
+          palette = "jco", 
+          color_labels_by_k = TRUE,
+          rect = TRUE, rect_fill = TRUE, rect_border = "jco",
+          labels_track_height = 2.5)
+
+ind4.complete_scale <- cutree(hc.complete_scale, 3)
+```
+
+Which states belong to which clusters
+```{r}
+# States in the first cluster
+dat2_scale[ind4.complete_scale == 1,]
+# States in the second cluster
+dat2_scale[ind4.complete_scale == 2,]
+# States in the third cluster
+dat2_scale[ind4.complete_scale == 3,]
+```
+
+### (c) Does scaling the variables change the clustering results? Why? In your opinion, should the variables be scaled before the inter-observation dissimilarities are computed?
+
+Yes, scaling the variables affects the clustering outcomes.
+
+This is because when variables are on different scales, particularly in methods like hierarchical clustering that depend on distance calculations, variables with larger scales (eg. Assault) disproportionately influence the results.
+
+I think the variables should be scaled before the inter-observation dissimilarities are computed to ensure that no single variable  influences the outcome purely because of its scale.
